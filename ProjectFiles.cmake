@@ -9,7 +9,7 @@ set(SRC
 
 # Set project main file.
 set(MAIN_SRC
-  "${SRC_PATH}/main.cpp"
+  "${SRC_PATH}/napa_perturbations.cpp"
 )
 
 # Set project test source files.

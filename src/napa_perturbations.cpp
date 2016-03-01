@@ -8,9 +8,7 @@
 // between two points in space. Only a single transfer segment is simulated here, that is, no multitargeting.
 // There is just one departure and one arrival object considered in the simulation. The object TLEs are
 // taken from a catalog file. The user can specify which object will be departure and which will be arrival
-// along with the time of flight. For now the departure epoch is manually mentioned, but for a general simulation it is advised that
-// the departure epoch be taken from the TLE itself otherwise for any other epoch, the TLE will not be accurate. 
-// No grid search is done here.  
+// along with the time of flight. 
 
 #include <iostream>
 #include <sstream>
@@ -102,8 +100,8 @@ int main( void )
     // read the TLE file. Line based parsing, using string streams
     std::string line;
     
-    std::ifstream tlefile( "../../src/napa_retrograde_catalog.txt" );
-    const bool is_retro = true;
+    std::ifstream tlefile( "../../src/napa_prograde_catalog.txt" );
+    const bool is_retro = false;
     
     if( !tlefile.is_open() )
         perror("error while opening file");
@@ -149,14 +147,14 @@ int main( void )
     
     std::cout.precision( 15 );
     
-    //*********************** Inputs *********************************************************************************//
-    Tle departureObject = tleObjects[ 2 ]; 
-    Tle arrivalObject = tleObjects[ 3 ];    
-    DateTime departureEpoch = DateTime( 2016, 1, 11, 4, 50, 21 );
-    const double TOF = 15130.0; // time of flight                     
-    ephemerisfile.open( "../../160215 napa osculating element results/160215 cartesian ephemeris case 4.csv" );
-    osculatingfile.open( "../../160215 napa osculating element results/160215 osculating elements case 4.csv" );
-    //***************************************************************************************************************//
+    //*********************** Inputs *********************************************************************************************************//
+    Tle departureObject = tleObjects[ 0 ]; 
+    Tle arrivalObject = tleObjects[ 1 ];    
+    DateTime departureEpoch = DateTime( 2016, 1, 13, 22, 06, 45 );
+    const double TOF = 24910.0; // time of flight                     
+    ephemerisfile.open( "/home/abhishek/Dropbox/Dinamica Internship/16-03-01 Napa osculating elements and ephemeris/16-03-01 ephemeris transfer case 5.csv" );
+    osculatingfile.open( "/home/abhishek/Dropbox/Dinamica Internship/16-03-01 Napa osculating elements and ephemeris/16-03-01 osculating transfer case 5.csv" );
+    //***************************************************************************************************************************************//
     
 
     SGP4 sgp4Departure( departureObject );
@@ -229,8 +227,16 @@ int main( void )
     array3 minLambertDepVel = targeter.get_v1( )[ minimumDeltaVIndex ];                    
     for( int i = 0; i < 3; i++ )
     {
-        LambertState[ i ] = departurePosition[ i ] * 1000.0;
-        LambertState[ i + 3 ] = minLambertDepVel[ i ] * 1000.0;
+        LambertState[ i ] = departurePosition[ i ] * 1000.0; // metre
+        LambertState[ i + 3 ] = minLambertDepVel[ i ] * 1000.0; // metre/sec
+    }
+
+    array3 LambertPropPosition;
+    array3 LambertPropVelocity;
+    for ( int i = 0; i < 3; i++ )
+    {
+        LambertPropPosition[ i ] = LambertState[ i ] / 1000.0; // km
+        LambertPropVelocity[ i ] = LambertState[ i + 3 ] / 1000.0; // km/s
     }
 
     const Real tolerance = 10.0 * std::numeric_limits< Real >::epsilon( );
@@ -250,27 +256,26 @@ int main( void )
     int numberOfIterations;
     const int maxIterations = 100;
     const Tle referenceTle = Tle( );
-    Vector6 atomVelocities( 6 );
-    Tle TransferOrbitTLE; // empty Tle object to store the TransferOrbit TLE from ATOM
-    int TransferOrbitTleIterations;
                             
     try
     {
-        atomVelocities = atom::executeAtomSolver< Real, Vector3, Vector6 >( atomDeparturePosition, 
-                                                                            departureEpoch, 
-                                                                            atomArrivalPosition, 
-                                                                            TOF, 
-                                                                            departureVelocityGuess, 
-                                                                            SolverStatusSummary, 
-                                                                            numberOfIterations, 
-                                                                            TransferOrbitTleIterations,
-                                                                            referenceTle, 
-                                                                            kMU, 
-                                                                            kXKMPER, 
-                                                                            1.0e-10, 
-                                                                            1.0e-5, 
-                                                                            maxIterations,
-                                                                            TransferOrbitTLE );
+        Vector3 outputDepartureVelocity( 3 );
+        Vector3 outputArrivalVelocity( 3 );
+        atom::executeAtomSolver< Real, Vector3 >( atomDeparturePosition, 
+                                                           departureEpoch, 
+                                                           atomArrivalPosition, 
+                                                           TOF, 
+                                                           departureVelocityGuess,
+                                                           outputDepartureVelocity,
+                                                           outputArrivalVelocity, 
+                                                           SolverStatusSummary, 
+                                                           numberOfIterations, 
+                                                           referenceTle, 
+                                                           kMU, 
+                                                           kXKMPER, 
+                                                           1.0e-10, 
+                                                           1.0e-5, 
+                                                           maxIterations );
                             
         
         Vector6 atomDepartureState( 6 );
@@ -279,9 +284,9 @@ int main( void )
         for( int i = 0; i < 3; i++ )
         {
             atomDepartureState[ i ] = atomDeparturePosition[ i ];
-            atomDepartureState[ i + 3 ] = atomVelocities[ i ];
+            atomDepartureState[ i + 3 ] = outputDepartureVelocity[ i ];
             atomArrivalState[ i ] = atomArrivalPosition[ i ];
-            atomArrivalState[ i + 3 ] = atomVelocities[ i + 3 ];
+            atomArrivalState[ i + 3 ] = outputArrivalVelocity[ i ];
         }
 
         Tle transferTLE = atom::convertCartesianStateToTwoLineElements< Real, Vector6>( atomDepartureState, departureEpoch );
@@ -296,14 +301,14 @@ int main( void )
         Real tsince = 0.0;
 
         
-        ephemerisfile << "jd" << "," << "x" << "," << "y" << "," << "z" << "," << "xdot" << "," << "ydot" << "," << "zdot" << std::endl;
+        ephemerisfile << "jd" << "," << "x" << "," << "y" << "," << "z" << "," << "xdot" << "," << "ydot" << "," << "zdot" << ",";
+        ephemerisfile << "lx" << "," << "ly" << "," << "lz" << "," << "lxdot" << "," << "lydot" << "," << "lzdot" << std::endl;
         
         osculatingfile << "jd" << "," << "a" << "," << "e" << "," << "i" << "," << "aop" << "," << "raan" << "," << "TA" << ",";
         osculatingfile << "raan_dot_moon" << "," << "raan_dot_sun" << "," << "raan_dot_3b" << "," << "raan_dot_j2" << "," << "raan_dot_total" << "," << "aop_dot_moon" << ",";
         osculatingfile << "aop_dot_sun" << "," << "aop_dot_3b" << "," << "aop_dot_j2" << "," << "aop_dot_total" << ",";
         osculatingfile << "La" << "," << "Le" << "," << "Li" << "," << "Laop" << "," << "Lraan" << "," << "LTA" << std::endl; 
 
-        
         
         const Real j2 = 0.00108263;
         Vector6 atomDepartureStateMetre( 6 );
@@ -317,7 +322,7 @@ int main( void )
         std::cout << "semi major axis of transfer orbit = " << p_a / 1000.0 << std::endl;
         double p_e = nominalTransferKeplerian[ 1 ];
         double p_i = nominalTransferKeplerian[ 2 ];
-        std::cout << "inclination = " << p_i << std::endl;
+        std::cout << "inclination = " << sml::convertRadiansToDegrees( p_i ) << std::endl;
         double p_T = 2 * sml::SML_PI * std::sqrt( std::pow( p_a, 3 ) / muEarth );
         std::cout << "time period for transfer orbit = " << p_T / 60 << std::endl;
         double p_n = ( 24 * 60 * 60 ) / p_T;
@@ -338,14 +343,9 @@ int main( void )
                                                                         / ( std::pow( (1 - std::pow( p_e, 2 ) ), 2 ) * 86400.0 );
         double aop_dot_total = aop_dot_moon + aop_dot_sun + aop_dot_j2;
         std::cout << "aop_dot_total = " << aop_dot_total * 86400.0 << std::endl;
-
-        // DateTime EphemerisEpoch = departureEpoch; // departure epoch for the transfer orbit arc
-        // DateTime DepartureTleEpoch = testDepartureTLE.Epoch( ); // departure epoch taken from the transfer orbit TLE
-        // std::cout << DepartureTleEpoch << " and " << EphemerisEpoch << std::endl;
                                                                
         for( int i = 0; i < 1001; i++ )
         {
-            // std::cout << "i = " << i << '\t';
             Real t = i;
             tsince = t * TimeStep;
             DateTime EphemerisEpoch = departureEpoch; // departure epoch for the transfer orbit arc
@@ -385,13 +385,27 @@ int main( void )
             osculatingfile << sml::convertRadiansToDegrees( LambertKep[ 4 ] ) << ",";
             osculatingfile << sml::convertRadiansToDegrees( LambertKep[ 5 ] ) << std::endl;
 
+            kep_toolbox::propagate_lagrangian( LambertPropPosition, LambertPropVelocity, TimeStep, kMU );
+            for ( int j = 0; j < 3; j++ )
+            {
+                LambertState[ j ] = LambertPropPosition[ j ] * 1000.0; // metre
+                LambertState[ j + 3 ] = LambertPropVelocity[ j ] * 1000.0; // metre/sec
+            }
+            LambertKep = astro::convertCartesianToKeplerianElements( LambertState, muEarth, tolerance );
+
             ephemerisfile << EphemerisJD << ",";
             ephemerisfile << AtomEphemeris.Position( ).x << ",";
             ephemerisfile << AtomEphemeris.Position( ).y << ",";
             ephemerisfile << AtomEphemeris.Position( ).z << ",";
             ephemerisfile << AtomEphemeris.Velocity( ).x << ",";
             ephemerisfile << AtomEphemeris.Velocity( ).y << ",";
-            ephemerisfile << AtomEphemeris.Velocity( ).z << std::endl;
+            ephemerisfile << AtomEphemeris.Velocity( ).z << ",";
+            ephemerisfile << LambertPropPosition[ 0 ] << ",";
+            ephemerisfile << LambertPropPosition[ 1 ] << ",";
+            ephemerisfile << LambertPropPosition[ 2 ] << ",";
+            ephemerisfile << LambertPropVelocity[ 0 ] << ",";
+            ephemerisfile << LambertPropVelocity[ 1 ] << ",";
+            ephemerisfile << LambertPropVelocity[ 2 ] << std::endl;
 
             if( i == 1000 )
             {
@@ -404,8 +418,8 @@ int main( void )
 
         for( int k = 0; k < 3; k++)
         {
-            atomDepartureVelocity[ k ] = atomVelocities[ k ];
-            atomArrivalVelocity[ k ] = atomVelocities[ k + 3 ];
+            atomDepartureVelocity[ k ] = outputDepartureVelocity[ k ];
+            atomArrivalVelocity[ k ] = outputArrivalVelocity[ k ];
         }
                                 
         array3 atomDepartureDeltaV;
@@ -416,8 +430,7 @@ int main( void )
         atomArrivalDeltaV = sml::add( atomArrivalVelocity, sml::multiply( arrivalVelocity, -1.0 ) );
 
         AtomDeltaV = sml::norm< Real >( atomDepartureDeltaV ) + sml::norm< Real >( atomArrivalDeltaV );
-
-        std::cout << "Atom Delta V without microsecond precision = " << AtomDeltaV << std::endl;
+        std::cout << "Atom DeltaV = " << AtomDeltaV << std::endl;
     }
     
     catch( const std::exception& err )   
