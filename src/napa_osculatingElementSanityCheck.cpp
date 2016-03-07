@@ -19,8 +19,6 @@
 #include <exception>
 #include <cstdlib>
 #include <iterator>
-#include <math.h>
-#include <tgmath.h>
 
 #include <libsgp4/Globals.h>
 #include <libsgp4/SGP4.h>
@@ -94,29 +92,6 @@ Vector6 standardKeplerian( const Vector6 elements )
     return result;
 }
 
-Vector3 crossProduct( Vector3 firstVec, Vector3 secondVec )
-{
-    Vector3 result( 3 );
-    result[ 0 ] = firstVec[ 1 ] * secondVec[ 2 ] - secondVec[ 1 ] * firstVec[ 2 ];
-    result[ 1 ] = -1.0 * ( firstVec[ 0 ] * secondVec[ 2 ] - secondVec[ 0 ] * firstVec[ 2 ] );
-    result[ 2 ] = firstVec[ 0 ] * secondVec[ 1 ] - secondVec[ 0 ] * firstVec[ 1 ];
-    return result;
-}
-
-Vector3 ECI2RTN( array3 ECI, Vector2D transform )
-{
-    Vector3 result( 3 );
-    for ( int i = 0; i < 3; i++ )
-    {
-        Real sum = 0;
-        for ( int j = 0; j < 3; j++ )
-        {
-            sum += transform[ i ][ j ] * ECI[ j ];
-        }
-        result[ i ] = sum;
-    }
-    return result;
-}
 
 int main( void )
 {
@@ -137,41 +112,12 @@ int main( void )
     // read the TLE file. Line based parsing, using string streams
     std::string line;
     
-    std::ofstream outputfile;
-    outputfile.precision( 15 );
-    outputfile.open( "/home/abhishek/Dropbox/Dinamica Internship/16-03-03 Napa transfer summary DV-RTN.csv" );
+    // std::ifstream tlefile( "../../src/napa_prograde_catalog.txt" );
+    // const bool is_retro = false;
 
-    outputfile << "Departure ID" << "," << "Arrival ID" << "," << "Departure Epoch" << "," << "TOF [s]" << ",";
-    outputfile << "Atom Departure Burn [m/s]" << "," << "Atom Arrival Burn [m/s]" << "," << "Atom total DV [m/s]" << "," << "Number of revolutions" << ",";
-    outputfile << "Atom Iterations" << "," << "Lambert Departure Burn [m/s]" << "," << "Lambert Arrival Burn [m/s]" << ",";
-    outputfile << "Lambert total DV [m/s]" << "," << "Atom Dep. Burn - Lambert Dep. Burn [m/s]" << ",";
-    outputfile << "Atom Arr. Burn - Lambert Arr. Burn [m/s]" << "," << "Atom Total Burn - Lambert Total Burn [m/s]" << ",";
-    outputfile << "Atom Vx Dep [m/s]" << "," << "Atom Vy Dep [m/s]" << "," << "Atom Vz Dep [m/s]" << ",";
-    outputfile << "lambert Vx Dep [m/s]" << "," << "lambert Vy Dep [m/s]" << "," << "lambert Vz Dep [m/s]" << ",";
-    outputfile << "Dep Burn Angle [deg]" << ",";
-    outputfile << "Atom Vx Arr [m/s]" << "," << "Atom Vy Arr [m/s]" << "," << "Atom Vz Arr [m/s]" << ",";
-    outputfile << "lambert Vx Arr [m/s]" << "," << "lambert Vy Arr [m/s]" << "," << "lambert Vz Arr [m/s]" << ",";
-    outputfile << "Arr Burn Angle [deg]" << std::endl;
-  
- for ( int runcase = 1; runcase < 6; runcase++ )
- {   
-    //*********************** ****** *********************************************************************************************************//
-    int transferCase = runcase;
-
-    //****************************************************************************************************************************************//
-    std::ifstream tlefile;
-    bool is_retro;
-    if ( transferCase == 5 )
-    {
-        tlefile.open( "../../src/napa_prograde_catalog.txt" );
-        is_retro = false;
-    }
-    else 
-    {
-        tlefile.open( "../../src/napa_retrograde_catalog.txt" );
-        is_retro = true;
-    }
-
+    std::ifstream tlefile( "../../src/napa_retrograde_catalog.txt" );
+    const bool is_retro = true;
+    
     if( !tlefile.is_open() )
         perror("error while opening file");
 
@@ -211,48 +157,13 @@ int main( void )
 
     std::cout.precision( 15 );
     
-    
-    //**************************************** Inputs ******************************************************************//
-    Tle departureObject;
-    Tle arrivalObject;
+    //*********************** Inputs *********************************************************************************************************//
+    Tle departureObject = tleObjects[ 2 ]; 
+    Tle arrivalObject = tleObjects[ 3 ];    
     DateTime departureEpoch;
-    double TOF; // time of flight
-
-    if ( transferCase == 1 )
-    {
-        departureObject = tleObjects[ 3 ]; 
-        arrivalObject = tleObjects[ 2 ];    
-        departureEpoch.Initialise( 2016, 1, 11, 4, 53, 22, 0 );
-        TOF = 2830.0; // time of flight            
-    }
-    else if ( transferCase == 2 )
-    {
-        departureObject = tleObjects[ 3 ]; 
-        arrivalObject = tleObjects[ 2 ];    
-        departureEpoch.Initialise( 2016, 1, 11, 5, 50, 2, 0 );
-        TOF = 1810.0; // time of flight            
-    }
-    else if ( transferCase == 3 )
-    {
-        departureObject = tleObjects[ 2 ]; 
-        arrivalObject = tleObjects[ 3 ];    
-        departureEpoch.Initialise( 2016, 1, 11, 4, 50, 21, 0 );
-        TOF = 5530.0; // time of flight            
-    }
-    else if ( transferCase == 4 )
-    {
-        departureObject = tleObjects[ 2 ]; 
-        arrivalObject = tleObjects[ 3 ];    
-        departureEpoch.Initialise( 2016, 1, 11, 4, 50, 21, 0 );
-        TOF = 15130.0; // time of flight                     
-    }
-    else if ( transferCase == 5 )
-    {
-        departureObject = tleObjects[ 0 ]; 
-        arrivalObject = tleObjects[ 1 ];    
-        departureEpoch.Initialise( 2016, 1, 13, 22, 6, 45, 0 );
-        TOF = 24910.0; // time of flight                     
-    }
+    // departureEpoch.Initialise( 2016, 1, 11, 4, 51, 21, 455936 );
+    departureEpoch.Initialise( 2016, 1, 11, 4, 50, 21, 0 );
+    const double TOF = 15130.0; // time of flight                     
     //***************************************************************************************************************************************//
     
     SGP4 sgp4Departure( departureObject );
@@ -307,8 +218,13 @@ int main( void )
 
     const std::vector< Real >::iterator minDeltaVIterator = std::min_element( transferDeltaVs.begin( ), transferDeltaVs.end( ) );
     const int minimumDeltaVIndex = std::distance( transferDeltaVs.begin( ), minDeltaVIterator );
+
+    Real lambertDepartureBurn = sml::norm< Real >( departureDeltaVs[ minimumDeltaVIndex ] );
+    Real lambertArrivalBurn = sml::norm< Real >( arrivalDeltaVs[ minimumDeltaVIndex ] );
+    Real lambertDV = transferDeltaVs[ minimumDeltaVIndex ];
+
     array3 minIndexDepartureVelocity = targeter.get_v1( )[ minimumDeltaVIndex ]; // best guess for velocity in transfer orbit at the departure point
-    //***********************************************************************************************//
+    
     Vector6 lambertDepState( 6 );
     for ( int i = 0; i < 3; i++ )
     {
@@ -319,18 +235,8 @@ int main( void )
     Vector6 LambertKep( 6 );
     LambertKep = astro::convertCartesianToKeplerianElements( lambertDepState, muEarth, tolerance );
     Vector6 LambertKepStd = standardKeplerian( LambertKep );
-    std::cout << std::endl << transferCase << "." << '\t' << "LambertKep = " << LambertKepStd << std::endl << std::endl;
-    //**************************************************************************************************//
-    
-    Real lambertDepartureBurn = sml::norm< Real >( departureDeltaVs[ minimumDeltaVIndex ] );
-    Real lambertArrivalBurn = sml::norm< Real >( arrivalDeltaVs[ minimumDeltaVIndex ] );
-    Real lambertDV = transferDeltaVs[ minimumDeltaVIndex ];
+    std::cout << std::endl << "LambertKep = " << LambertKepStd << std::endl << std::endl;
 
-    array3 lambertDepartureDeltaV;
-    array3 lambertArrivalDeltaV;
-    lambertDepartureDeltaV = departureDeltaVs[ minimumDeltaVIndex ];
-    lambertArrivalDeltaV = arrivalDeltaVs[ minimumDeltaVIndex ];
-    
     Vector3 departureVelocityGuess( 3 );
     Vector3 atomDeparturePosition( 3 );
     Vector3 atomArrivalPosition( 3 );
@@ -371,13 +277,6 @@ int main( void )
                                                   maxIterations );
                             
         
-        for( int k = 0; k < 3; k++)
-        {
-            atomDepartureVelocity[ k ] = outputDepartureVelocity[ k ];
-            atomArrivalVelocity[ k ] = outputArrivalVelocity[ k ];
-        }
-    
-        //************************************************************************************************//                        
         Vector6 atomDepState( 6 );
         for ( int i = 0; i < 3; i++ )
         {
@@ -387,12 +286,14 @@ int main( void )
         Vector6 atomDepKep = astro::convertCartesianToKeplerianElements( atomDepState, muEarth, tolerance );
         Vector6 atomDepKepStd( 6 );
         atomDepKepStd = standardKeplerian( atomDepKep );
-        std::cout << std::endl << transferCase << "." << '\t' << "atom dep kep = " << atomDepKepStd << std::endl << std::endl;
-        //************************************************************************************************//
-        double timeperiod = 2 * sml::SML_PI * std::sqrt( std::pow( atomDepKepStd[ 0 ], 3 ) / kMU ); // seconds
-        int revolutions = std::floor ( TOF / timeperiod );
-        std::cout << "Number of revolutions = " << revolutions << std::endl;
+        std::cout << std::endl << "atom dep kep = " << atomDepKepStd << std::endl << std::endl;
 
+        for( int k = 0; k < 3; k++)
+        {
+            atomDepartureVelocity[ k ] = outputDepartureVelocity[ k ];
+            atomArrivalVelocity[ k ] = outputArrivalVelocity[ k ];
+        }
+                                
         array3 atomDepartureDeltaV;
         array3 atomArrivalDeltaV;
         Real AtomDeltaV;
@@ -404,109 +305,6 @@ int main( void )
         double AtomArrivalBurn = sml::norm< Real >( atomArrivalDeltaV );
         AtomDeltaV = sml::norm< Real >( atomDepartureDeltaV ) + sml::norm< Real >( atomArrivalDeltaV );
         std::cout << "Atom DeltaV = " << AtomDeltaV << std::endl;
-
-        //***********************ECI2RTN rotation matrix*******************************************************//
-        Vector3 unitR( 3 );
-        unitR[ 0 ] = departurePosition[ 0 ] / sml::norm< Real >( departurePosition ); 
-        unitR[ 1 ] = departurePosition[ 1 ] / sml::norm< Real >( departurePosition ); 
-        unitR[ 2 ] = departurePosition[ 2 ] / sml::norm< Real >( departurePosition ); 
-
-        Vector3 RCrossV( 3 );
-        RCrossV = crossProduct( atomDeparturePosition, outputDepartureVelocity );
-        Real normRCrossV = sml::norm< Real >( RCrossV );
-        Vector3 unitN( 3 );
-        unitN[ 0 ] = RCrossV[ 0 ] / normRCrossV;
-        unitN[ 1 ] = RCrossV[ 1 ] / normRCrossV;
-        unitN[ 2 ] = RCrossV[ 2 ] / normRCrossV;
-
-        Vector3 unitT( 3 );
-        unitT = crossProduct( unitN, unitR );
-
-        Vector2D transform( 3, std::vector< Real >( 3 ) );
-        for ( int i = 0; i < 3; i++ )
-        {
-            transform[ 0 ][ i ] = unitR[ i ];
-            transform[ 1 ][ i ] = unitT[ i ];
-            transform[ 2 ][ i ] = unitN[ i ]; 
-        }
-
-        std::cout << "transform: " << std::endl;
-        for ( int i = 0; i < 3; i++ )
-        {
-            for ( int j = 0; j < 3; j++ )
-            {
-                std::cout << transform[ i ][ j ] << '\t';
-            }
-            std::cout << std::endl;
-        }
-        
-
-        Vector3 atomDepRTN( 3 );
-        atomDepRTN = ECI2RTN( atomDepartureDeltaV, transform );
-        // std::cout << "atomDepRTN[ x ] = " << atomDepRTN[ 0 ] << std::endl;
-        // std::cout << "atomDepRTN[ y ] = " << atomDepRTN[ 1 ] << std::endl;
-        // std::cout << "atomDepRTN[ z ] = " << atomDepRTN[ 2 ] << std::endl;
-
-        Vector3 atomArrRTN( 3 );
-        atomArrRTN = ECI2RTN( atomArrivalDeltaV, transform );
-
-        Vector3 lambertDepRTN( 3 );
-        lambertDepRTN = ECI2RTN( lambertDepartureDeltaV, transform );
-
-        Vector3 lambertArrRTN( 3 );
-        lambertArrRTN = ECI2RTN( lambertArrivalDeltaV, transform );
-        //*************************************************************************************//
-
-        outputfile << departureObjectId << ",";
-        outputfile << arrivalObjectId << ",";
-        outputfile << departureEpoch << ",";
-        outputfile << TOF << ",";
-        outputfile << AtomDepartureBurn * 1000.0 << ",";
-        outputfile << AtomArrivalBurn * 1000.0 << ",";
-        outputfile << AtomDeltaV * 1000.0 << ",";
-        outputfile << revolutions << ",";
-        outputfile << numberOfIterations << ",";
-        outputfile << lambertDepartureBurn * 1000.0 << ",";
-        outputfile << lambertArrivalBurn * 1000.0 << ",";
-        outputfile << lambertDV * 1000.0 << ",";
-        outputfile << (AtomDepartureBurn - lambertDepartureBurn) * 1000.0 << ",";
-        outputfile << (AtomArrivalBurn - lambertArrivalBurn) * 1000.0 << ",";
-        outputfile << (AtomDeltaV - lambertDV) * 1000.0 << ",";
-        
-        // outputfile << atomDepartureDeltaV[ 0 ] * 1000.0 << ",";
-        // outputfile << atomDepartureDeltaV[ 1 ] * 1000.0 << ",";
-        // outputfile << atomDepartureDeltaV[ 2 ] * 1000.0 << ",";
-        // outputfile << lambertDepartureDeltaV[ 0 ] * 1000.0 << ",";
-        // outputfile << lambertDepartureDeltaV[ 1 ] * 1000.0 << ",";
-        // outputfile << lambertDepartureDeltaV[ 2 ] * 1000.0 << ",";
-        // double Numerator = atomDepartureDeltaV[ 0 ] * lambertDepartureDeltaV[ 0 ] + atomDepartureDeltaV[ 1 ] * lambertDepartureDeltaV[ 1 ] + atomDepartureDeltaV[ 2 ] * lambertDepartureDeltaV[ 2 ];
-        // double Denominator = sml::norm< Real >( atomDepartureDeltaV ) * sml::norm< Real >( lambertDepartureDeltaV );
-        // double departureAngle = std::acos( Numerator / Denominator );
-        // outputfile << sml::convertRadiansToDegrees( departureAngle ) << ",";
-
-        outputfile << atomDepRTN[ 0 ] * 1000.0 << ",";
-        outputfile << atomDepRTN[ 1 ] * 1000.0 << ",";
-        outputfile << atomDepRTN[ 2 ] * 1000.0 << ",";
-        outputfile << lambertDepRTN[ 0 ] * 1000.0 << ",";
-        outputfile << lambertDepRTN[ 1 ] * 1000.0 << ",";
-        outputfile << lambertDepRTN[ 2 ] * 1000.0 << ",";
-        double Numerator = atomDepRTN[ 0 ] * lambertDepRTN[ 0 ] + atomDepRTN[ 1 ] * lambertDepRTN[ 1 ] + atomDepRTN[ 2 ] * lambertDepRTN[ 2 ];
-        double Denominator = sml::norm< Real >( atomDepRTN ) * sml::norm< Real >( lambertDepRTN );
-        double departureAngle = std::acos( Numerator / Denominator );
-        outputfile << sml::convertRadiansToDegrees( departureAngle ) << ",";
-        // outputfile << ",";
-
-        outputfile << atomArrRTN[ 0 ] * 1000.0 << ",";
-        outputfile << atomArrRTN[ 1 ] * 1000.0 << ",";
-        outputfile << atomArrRTN[ 2 ] * 1000.0 << ",";
-        outputfile << lambertArrRTN[ 0 ] * 1000.0 << ",";
-        outputfile << lambertArrRTN[ 1 ] * 1000.0 << ",";
-        outputfile << lambertArrRTN[ 2 ] * 1000.0 << ",";
-        double Numerator2 = atomArrRTN[ 0 ] * lambertArrRTN[ 0 ] + atomArrRTN[ 1 ] * lambertArrRTN[ 1 ] + atomArrRTN[ 2 ] * lambertArrRTN[ 2 ];
-        double Denominator2 = sml::norm< Real >( atomArrRTN ) * sml::norm< Real >( lambertArrRTN );
-        double arrivalAngle = std::acos( Numerator2 / Denominator2 );
-        outputfile << sml::convertRadiansToDegrees( arrivalAngle ) << std::endl;
-        // outputfile << std::endl;
     }
     
     catch( const std::exception& err )   
@@ -516,7 +314,6 @@ int main( void )
         std::cout << "For departure ID = " << catchDepartureID << " " << "For Arrival ID = " << catchArrivalID << std::endl << std::endl;
         // std::cout << "Fail count = " << failCount << std::endl;
     }
- }  
-   outputfile.close( );
+
    return EXIT_SUCCESS;
 }
